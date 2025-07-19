@@ -261,3 +261,16 @@ body {
 .generate-btn i {
   margin-right: 8px;
 }
+
+/* Modal styles for product description */
+#descModal {
+  /* Modal is hidden by default, shown with JS */
+}
+
+/* already styled inlline in JS for simplicity */
+#descModalOverlay {
+}
+#descModalContent {
+}
+#descModalClose {
+}

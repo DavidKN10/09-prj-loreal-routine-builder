@@ -1,4 +1,3 @@
-
 /* Get references to DOM elements */
 const categoryFilter = document.getElementById("categoryFilter");
 const productsContainer = document.getElementById("productsContainer");
@@ -26,6 +25,48 @@ async function loadProducts() {
   return data.products;
 }
 
+/* --- Modal window for product description --- */
+// Create modal HTML and add to body (only once)
+let modal = document.createElement("div");
+modal.id = "descModal";
+modal.style.display = "none";
+modal.innerHTML = `
+  <div id="descModalOverlay" style="
+    position: fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:1000; display:flex; align-items:center; justify-content:center;">
+    <div id="descModalContent" style="
+      background:#fff; padding:30px; border-radius:8px; max-width:400px; box-shadow:0 2px 16px rgba(0,0,0,0.2); position:relative;">
+      <button id="descModalClose" style="
+        position:absolute; top:10px; right:10px; font-size:22px; background:none; border:none; cursor:pointer;">&times;</button>
+      <h3 id="descModalTitle"></h3>
+      <p id="descModalText"></p>
+    </div>
+  </div>
+`;
+document.body.appendChild(modal);
+
+// Function to show modal with product info
+function showDescriptionModal(product) {
+  // Fill modal content
+  document.getElementById("descModalTitle").textContent = product.name;
+  document.getElementById("descModalText").textContent = product.description;
+  modal.style.display = "block";
+}
+
+// Function to hide modal
+function hideDescriptionModal() {
+  modal.style.display = "none";
+}
+
+// Close modal when clicking close button
+document.getElementById("descModalClose").addEventListener("click", hideDescriptionModal);
+
+// Close modal when clicking outside modal content
+document.getElementById("descModalOverlay").addEventListener("click", function(e) {
+  if (e.target === this) {
+    hideDescriptionModal();
+  }
+});
+
 /* Create HTML for displaying product cards */
 function displayProducts(products) {
   productsContainer.innerHTML = products
@@ -39,6 +80,8 @@ function displayProducts(products) {
       <div class="product-info">
         <h3>${product.name}</h3>
         <p>${product.brand}</p>
+        <!-- Show Description button -->
+        <button class="show-desc-btn" data-id="${product.id}">Show Description</button>
       </div>
     </div>
   `;
@@ -46,10 +89,13 @@ function displayProducts(products) {
     )
     .join("");
 
-  // Add click event listeners to product cards
+  // Add click event listeners to product cards for selection
   const cards = productsContainer.querySelectorAll(".product-card");
   cards.forEach((card) => {
-    card.addEventListener("click", () => {
+    card.addEventListener("click", (event) => {
+      // Prevent selection if clicking the Show Description button
+      if (event.target.classList.contains("show-desc-btn")) return;
+
       const productId = parseInt(card.getAttribute("data-id"));
       const product = products.find((p) => p.id === productId);
       if (!product) return;
@@ -64,6 +110,19 @@ function displayProducts(products) {
       // Update UI
       displayProducts(products);
       updateSelectedProductsList();
+    });
+  });
+
+  // Add click event listeners to Show Description buttons
+  const descBtns = productsContainer.querySelectorAll(".show-desc-btn");
+  descBtns.forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      event.stopPropagation(); // Prevent card selection
+      const productId = parseInt(btn.getAttribute("data-id"));
+      const product = products.find((p) => p.id === productId);
+      if (product) {
+        showDescriptionModal(product);
+      }
     });
   });
 }
