@@ -17,7 +17,8 @@ export default {
     const userInput = await request.json();
 
     const requestBody = {
-      model: 'gpt-4o',
+      model: 'gpt-4o-search-preview',
+      web_search_options: {},
       messages: userInput.messages,
       max_completion_tokens: 300,
     };

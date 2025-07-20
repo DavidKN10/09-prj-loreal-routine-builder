@@ -185,3 +185,71 @@ chatForm.addEventListener("submit", (e) => {
 
   chatWindow.innerHTML = "Connect to the OpenAI API for a response!";
 });
+
+// Add reference to Generate Routine button
+const generateRoutineBtn = document.getElementById("generateRoutine");
+
+// Function to generate routine using OpenAI API
+async function generateRoutine() {
+  // Only collect selected products
+  if (selectedProducts.length === 0) {
+    chatWindow.innerHTML = "Please select products before generating a routine.";
+    return;
+  }
+
+  // Prepare product data for the AI
+  const productData = selectedProducts.map(product => ({
+    name: product.name,
+    brand: product.brand,
+    category: product.category,
+    description: product.description
+  }));
+
+  // Create messages for OpenAI API
+  const messages = [
+    {
+      role: "system",
+      content: "You are a routine builder and product advisor expert for L'Oreal. Generate a  routine using the provided products. Explain the order and purpose for each product."
+    },
+    {
+      role: "user",
+      content: `Here are the selected products:\n${JSON.stringify(productData, null, 2)}`
+    }
+  ];
+
+  // Show loading message
+  chatWindow.innerHTML = "Generating your routine...";
+
+  try {
+    // Send request to Cloudflare Worker
+    const response = await fetch(workerURL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ messages })
+    });
+
+    const data = await response.json();
+
+    // Check for AI response
+    if (
+      data &&
+      data.choices &&
+      data.choices[0] &&
+      data.choices[0].message &&
+      data.choices[0].message.content
+    ) {
+      chatWindow.innerHTML = `<div class="ai-response">${data.choices[0].message.content}</div>`;
+    } else {
+      chatWindow.innerHTML = "Sorry, no routine was generated. Please try again.";
+    }
+  } catch (error) {
+    chatWindow.innerHTML = "Error generating routine. Please try again.";
+  }
+}
+
+// Add event listener to Generate Routine button
+if (generateRoutineBtn) {
+  generateRoutineBtn.addEventListener("click", generateRoutine);
+}
