@@ -67,6 +67,26 @@ document.getElementById("descModalOverlay").addEventListener("click", function(e
   }
 });
 
+// Load selected products from localStorage (if any)
+function loadSelectedProducts() {
+  const saved = localStorage.getItem("selectedProducts");
+  if (saved) {
+    try {
+      selectedProducts = JSON.parse(saved);
+    } catch {
+      selectedProducts = [];
+    }
+  }
+}
+
+// Save selected products to localStorage
+function saveSelectedProducts() {
+  localStorage.setItem("selectedProducts", JSON.stringify(selectedProducts));
+}
+
+// Call loadSelectedProducts on page load
+loadSelectedProducts();
+
 /* Create HTML for displaying product cards */
 function displayProducts(products) {
   productsContainer.innerHTML = products
@@ -107,6 +127,7 @@ function displayProducts(products) {
       } else {
         selectedProducts.push(product);
       }
+      saveSelectedProducts(); // Save after change
       // Update UI
       displayProducts(products);
       updateSelectedProductsList();
@@ -143,7 +164,8 @@ function updateSelectedProductsList() {
       </div>
     `
     )
-    .join("");
+    .join("") +
+    `<button id="clearAllBtn" class="generate-btn" style="background:#e74c3c;margin-top:10px;"><i class="fa-solid fa-trash"></i> Clear All</button>`;
 
   // Add event listeners to remove buttons
   const removeBtns = selectedProductsList.querySelectorAll(".remove-btn");
@@ -151,14 +173,27 @@ function updateSelectedProductsList() {
     btn.addEventListener("click", (e) => {
       const productId = parseInt(btn.getAttribute("data-id"));
       selectedProducts = selectedProducts.filter((p) => p.id !== productId);
+      saveSelectedProducts();
       // Re-render both sections
-      // If products are currently filtered, re-display them
       if (window.currentProducts) {
         displayProducts(window.currentProducts);
       }
       updateSelectedProductsList();
     });
   });
+
+  // Add event listener to Clear All button
+  const clearAllBtn = document.getElementById("clearAllBtn");
+  if (clearAllBtn) {
+    clearAllBtn.addEventListener("click", () => {
+      selectedProducts = [];
+      saveSelectedProducts();
+      if (window.currentProducts) {
+        displayProducts(window.currentProducts);
+      }
+      updateSelectedProductsList();
+    });
+  }
 }
 
 /* Filter and display products when category changes */
