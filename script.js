@@ -11,6 +11,9 @@ const workerURL = "https://wonderbot-worker.davidrs23178.workers.dev/";
 // Array to keep track of selected products
 let selectedProducts = [];
 
+// Store chat history for follow-up questions
+let chatHistory = [];
+
 /* Show initial placeholder until user selects a category */
 productsContainer.innerHTML = `
   <div class="placeholder-message">
@@ -31,12 +34,9 @@ let modal = document.createElement("div");
 modal.id = "descModal";
 modal.style.display = "none";
 modal.innerHTML = `
-  <div id="descModalOverlay" style="
-    position: fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:1000; display:flex; align-items:center; justify-content:center;">
-    <div id="descModalContent" style="
-      background:#fff; padding:30px; border-radius:8px; max-width:400px; box-shadow:0 2px 16px rgba(0,0,0,0.2); position:relative;">
-      <button id="descModalClose" style="
-        position:absolute; top:10px; right:10px; font-size:22px; background:none; border:none; cursor:pointer;">&times;</button>
+  <div id="descModalOverlay">
+    <div id="descModalContent">
+      <button id="descModalClose">&times;</button>
       <h3 id="descModalTitle"></h3>
       <p id="descModalText"></p>
     </div>
@@ -179,15 +179,19 @@ categoryFilter.addEventListener("change", async (e) => {
 // Initial selected products list
 updateSelectedProductsList();
 
-/* Chat form submission handler - placeholder for OpenAI integration */
-chatForm.addEventListener("submit", (e) => {
-  e.preventDefault();
-
-  chatWindow.innerHTML = "Connect to the OpenAI API for a response!";
-});
-
-// Add reference to Generate Routine button
-const generateRoutineBtn = document.getElementById("generateRoutine");
+// Helper function to render chat history in the chat window
+function renderChat() {
+  chatWindow.innerHTML = chatHistory
+    .filter(msg => msg.role === "user" || msg.role === "assistant")
+    .map(msg => {
+      if (msg.role === "user") {
+        return `<div class="chat-message user-message">${msg.content}</div>`;
+      } else {
+        return `<div class="chat-message ai-message">${msg.content}</div>`;
+      }
+    })
+    .join("");
+}
 
 // Function to generate routine using OpenAI API
 async function generateRoutine() {
@@ -209,13 +213,16 @@ async function generateRoutine() {
   const messages = [
     {
       role: "system",
-      content: "You are a routine builder and product advisor expert for L'Oreal. Generate a  routine using the provided products. Explain the order and purpose for each product."
+      content: "You are a routine builder and product advisor expert for L'Oreal. Generate a routine using the provided products. Explain the order and purpose for each product. If the user asks something off topic, say that you cannot help with that and try to redirect them."
     },
     {
       role: "user",
       content: `Here are the selected products:\n${JSON.stringify(productData, null, 2)}`
     }
   ];
+
+  // Save initial system and user messages to chatHistory
+  chatHistory = [...messages];
 
   // Show loading message
   chatWindow.innerHTML = "Generating your routine...";
@@ -240,7 +247,13 @@ async function generateRoutine() {
       data.choices[0].message &&
       data.choices[0].message.content
     ) {
-      chatWindow.innerHTML = `<div class="ai-response">${data.choices[0].message.content}</div>`;
+      // Add AI response to chatHistory
+      chatHistory.push({
+        role: "assistant",
+        content: data.choices[0].message.content
+      });
+      // Render chat history
+      renderChat();
     } else {
       chatWindow.innerHTML = "Sorry, no routine was generated. Please try again.";
     }
@@ -250,6 +263,81 @@ async function generateRoutine() {
 }
 
 // Add event listener to Generate Routine button
+const generateRoutineBtn = document.getElementById("generateRoutine");
 if (generateRoutineBtn) {
   generateRoutineBtn.addEventListener("click", generateRoutine);
 }
+
+// Chat form submission handler for follow-up questions
+chatForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  // Get user's question from input
+  const userInput = document.getElementById("userInput").value.trim();
+
+  // Only allow questions after a routine is generated
+  if (chatHistory.length === 0) {
+    chatWindow.innerHTML = "Please generate a routine first!";
+    return;
+  }
+
+  // Simple check for allowed topics (skincare, haircare, makeup, fragrance, routine)
+  const allowedTopics = [
+    "routine", "skincare", "haircare", "makeup", "fragrance", "product", "beauty", "treatment", "men's grooming", "suncare", "hair color", "hair styling"
+  ];
+  const isAllowed = allowedTopics.some(topic =>
+    userInput.toLowerCase().includes(topic)
+  );
+
+  if (!isAllowed) {
+    chatWindow.innerHTML = "Please ask about your routine or beauty topics like skincare, haircare, makeup, or fragrance.";
+    return;
+  }
+
+  // Add user's question to chatHistory
+  chatHistory.push({
+    role: "user",
+    content: userInput
+  });
+
+  // Show loading message
+  renderChat();
+  chatWindow.innerHTML += `<div class="chat-message loading-message">Thinking...</div>`;
+
+  try {
+    // Send updated chatHistory to OpenAI API
+    const response = await fetch(workerURL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ messages: chatHistory })
+    });
+
+    const data = await response.json();
+
+    // Check for AI response
+    if (
+      data &&
+      data.choices &&
+      data.choices[0] &&
+      data.choices[0].message &&
+      data.choices[0].message.content
+    ) {
+      // Add AI response to chatHistory
+      chatHistory.push({
+        role: "assistant",
+        content: data.choices[0].message.content
+      });
+      // Render chat history
+      renderChat();
+    } else {
+      chatWindow.innerHTML = "Sorry, no answer was generated. Please try again.";
+    }
+  } catch (error) {
+    chatWindow.innerHTML = "Error getting response. Please try again.";
+  }
+
+  // Clear input box
+  document.getElementById("userInput").value = "";
+});
